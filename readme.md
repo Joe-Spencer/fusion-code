@@ -18,9 +18,6 @@ Generates a series of triangles from a CSV file. This is useful for measuring a 
 ### Spheres:
 Just for fun. Makes 100 randomly sized non-intersecting spheres.
 
-### CustomThermwoodPostProcessor:
-This post processor is specifically intended for a machine that has been modified such that the axes are rotated 270 degrees causing the long side of the table to point in the negative x direction. It also includes presets values for offset blocks.
-
 To use these scripts you will need an up-to-date Fusion license. To use the scripts drop them in your scripts folder, usually "user\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\Scripts" You may also need to create a settings.json file with the following paths:
 
 ```json
@@ -31,5 +28,7 @@ To use these scripts you will need an up-to-date Fusion license. To use the scri
 }
 
 ```
+### CustomThermwoodPostProcessor:
+This post processor is specifically intended for a machine that has been modified such that the axes are rotated 270 degrees causing the long side of the table to point in the negative x direction. It also includes presets values for offset blocks.
 
 Also included in this repo is an "Examples" file with links to some of my projects in the Fusion web viewer.
