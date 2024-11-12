@@ -5,17 +5,16 @@ from enum import Enum
 
 
 #################### Some constants used in the script ####################
-# We assume we are cutting Aluminum here...
 
 # Milling tool library to get tools from
 MILLING_TOOL_LIBRARY = 'Milling Tools (Metric)'
 
 # Some material properties for feed and speed calculation
-CUTTING_SPEED = 300  # mm/min
-_FEED_PER_TOOTH = 0.1 # mm/tooth
+ALUMINUM_CUTTING_SPEED = 300  # mm/min
+ALUMINUM_FEED_PER_TOOTH = 0.1 # mm/tooth
 
 # some tool preset name (which we know exists for the selected tools)
-ALUMINUM__FEED_PER_TOOTH= 'alu* rou*'
+ALUMINUM_PRESET_ROUGHING = 'alu* rou*'
 ALUMINUM_PRESET_FINISHING = 'Aluminum - Finishing'
 
 
@@ -58,7 +57,7 @@ class SetupWCSPoint(Enum):
     BOTTOM_SIDE_XMIN = 'bottom side 4'
 
 
-#################### Script entry point ####################
+#main function
 
 def run(context):
     ui = None
@@ -83,7 +82,7 @@ def run(context):
 
         #################### create sample part ####################
 
-        part = createSamplePart(design)
+        models = createSamplePart(design)
 
         #################### select cutting tools ####################
 
@@ -149,10 +148,9 @@ def run(context):
         cam = adsk.cam.CAM.cast(products.itemByProductType("CAMProductType"))
         setups = cam.setups
         setupInput = setups.createInput(adsk.cam.OperationTypes.MillingOperation)
-        # create a list for the models to add to the setup Input
-        models = [] 
+        # create a list for the models to add to the setup Input 
         # add the part to the model list
-        models.append(part)
+        # models.append(part)
         # pass the model list to the setup input
         setupInput.models = models
         # create the setup and set some properties
@@ -162,19 +160,19 @@ def run(context):
         # set offset mode
         setup.parameters.itemByName('job_stockOffsetMode').expression = "'simple'"
         # set offset stock side
-        setup.parameters.itemByName('job_stockOffsetSides').expression = '0 mm'
+        setup.parameters.itemByName('job_stockOffsetSides').expression = '1 mm'
         # set offset stock top
-        setup.parameters.itemByName('job_stockOffsetTop').expression = '1 mm'
+        setup.parameters.itemByName('job_stockOffsetTop').expression = '0 mm'
         # set setup origin
-        setup.parameters.itemByName('wcs_origin_boxPoint').value.value = SetupWCSPoint.TOP_XMIN_YMIN.value
+        setup.parameters.itemByName('wcs_origin_boxPoint').value.value = SetupWCSPoint.BOTTOM_XMAX_YMAX.value
 
 
         #################### face operations ####################
         # calculate feed and speed for face operation
         toolDiameter = faceTool.parameters.itemByName('tool_diameter').value.value          # cm
         numberOfFlutes = faceTool.parameters.itemByName('tool_numberOfFlutes').value.value  # int
-        spindleSpeed = CUTTING_SPEED / math.pi / (toolDiameter * 10) * 1000        # rpm
-        cuttingFeedrate = spindleSpeed * _FEED_PER_TOOTH * numberOfFlutes           # mm/min
+        spindleSpeed = ALUMINUM_CUTTING_SPEED / math.pi / (toolDiameter * 10) * 1000        # rpm
+        cuttingFeedrate = spindleSpeed * ALUMINUM_FEED_PER_TOOTH * numberOfFlutes           # mm/min
 
         # create a preset with those calculated feeds
         facePreset = faceTool.presets.add()
@@ -205,15 +203,39 @@ def run(context):
         faceOp = setup.operations.add(input)
 
 
-        #################### adaptive operations ####################
-        input = setup.operations.createInput('adaptive')
-        input.tool = adaptiveTool
-        input.displayName = 'Adaptive Roughing'
-        input.parameters.itemByName('tolerance').expression = '0.1 mm' 
-        input.parameters.itemByName('maximumStepdown').expression = '5 mm' 
-        input.parameters.itemByName('fineStepdown').expression = '0.25 * maximumStepdown'
-        input.parameters.itemByName('flatAreaMachining').expression = 'false'
+        #################### scribe operation ####################
+        scribe_sketch = None
+        for sketch in design.rootComponent.sketches:
+            if sketch.name == "Scribe":
+                ui.messageBox("Scribe sketch found")
+                scribe_sketch = sketch
+                break
+        input=setup.operations.createInput('trace')
+        geometry = []
+        for profile in scribe_sketch.profiles:
+            for curve in profile.profileLoops[0].profileCurves:
+                geometry.append(curve.sketchEntity)
 
+        modelParam = input.parameters.itemByName('model')
+
+
+        traceOP = setup.operations.add(input)
+        sketchSelection: adsk.cam.CadContours2dParameterValue = traceOP.parameters.itemByName('sketches').value
+        scribe = sketchSelection.getCurveSelections()
+        scribe = sketchSelection.createNewChainSelection()
+        scribe.inputGeometry = [scribe_sketch]
+        sketchSelection.applyCurveSelections(scribe)
+
+        # geomSelect: adsk.cam.SketchSelection = modelParam.value
+        # geomSelect.value = geometry
+        # input.parameters.itemByName('geometry').expression = geometry
+        # input.tool = adaptiveTool
+        # input.geometry = geometry
+        
+        input.displayName = 'Scribe'
+        input.parameters.itemByName('tolerance').expression = '0.1 mm' 
+
+               
         # look if there is a tool preset related to aluminum roughing
         presets = adaptiveTool.presets.itemsByName(ALUMINUM_PRESET_ROUGHING)
         if len(presets) > 0:
@@ -250,7 +272,7 @@ def run(context):
 
         # lets use a contour for the sake of demonstration
         limitEdge = None
-        for e in part.edges:
+        for e in models[0].edges:
             # this is the inner one: intersection of a plane and a sphere making up a circle
             if e.geometry.curveType == adsk.core.Curve3DTypes.Circle3DCurveType:
                 limitEdge = e
@@ -337,15 +359,15 @@ def run(context):
 
         # query post library to get postprocessor list
         postQuery = postLibrary.createQuery(adsk.cam.LibraryLocations.Fusion360LibraryLocation)
-        postQuery.vendor = "Autodesk"
+        postQuery.vendor = "Thermwood"
         postQuery.capability = adsk.cam.PostCapabilities.Milling
         postConfigs = postQuery.execute()
 
         # find the "XYZ" post in the post library and import it to local library
         for config in postConfigs:
-            if config.description == 'XYZ':
+            if config.description == 'Custom Thermwood 3-Axis':
                 url = adsk.core.URL.create("user://")
-                importedURL = postLibrary.importPostConfiguration(config, url, "NCProgramSamplePost.cps")
+                importedURL = postLibrary.importPostConfiguration(config, url, "CustomThermwood - v3.cps")
 
         # get the imported local post config
         postConfig = postLibrary.postConfigurationAtURL(importedURL)
@@ -428,79 +450,65 @@ def getToolsFromLibraryByTypeDiameterRangeAndMinFluteLength(toolLibrary: adsk.ca
 #################### CAD creation ####################
 
 def createSamplePart(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
-    """ Creates the sample part for this script """
-    box = createBox(design, 22, 15, 5)
-    sphere = createSphere(design, adsk.core.Vector3D.create(0, 0, 10), 7.5)
-    part = getBodyFromBooleanOperation(design, box, sphere)
-    return part
+    ui = None
+    try:
+        model=[]
+        app = adsk.core.Application.get()
+        ui  = app.userInterface
+        rootComp = design.rootComponent
 
+        # Open the DXF file
+        fileDialog = ui.createFileDialog()
+        fileDialog.isMultiSelectEnabled = False
+        fileDialog.title = "Open DXF File"
+        fileDialog.filter = "DXF files (*.dxf)"
+        dialogResult = fileDialog.showOpen()
+        if dialogResult != adsk.core.DialogResults.DialogOK:
+            return
 
-def createBox(design: adsk.fusion.Design, sizeX: float, sizeY: float, sizeZ: float) -> adsk.fusion.BRepBody:
-    ''' Creates a sample box'''
-    component = design.rootComponent
-    # Create sketch
-    sketches = component.sketches
-    sketch: adsk.fusion.Sketch = sketches.add(component.xYConstructionPlane)
-    lines = sketch.sketchCurves.sketchLines
-    recLines = lines.addTwoPointRectangle(adsk.core.Point3D.create(-sizeX / 2, -sizeY / 2, 0), adsk.core.Point3D.create(sizeX / 2, sizeY / 2, 0))
-    prof = sketch.profiles.item(0)
-    extrudes = component.features.extrudeFeatures
-    distance = adsk.core.ValueInput.createByReal(sizeZ)
-    ext = extrudes.addSimple(prof, distance, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-    return ext.bodies.item(0)
+        dxfFile = fileDialog.filename
 
+        # Create a new sketch for each layer in the DXF file
+        importManager = app.importManager
+        dxfOptions = importManager.createDXF2DImportOptions(dxfFile, rootComp.xYConstructionPlane)
+        importManager.importToTarget(dxfOptions, rootComp)
 
-def createSphere(design: adsk.fusion.Design, origin: adsk.core.Vector3D, radius: float) -> adsk.fusion.BRepBody:
-    ''' Creates a sample sphere '''
-    component = design.rootComponent
-    # Create a new sketch on the xy plane.
-    sketches = component.sketches
-    xyPlane = component.xYConstructionPlane
-    sketch: adsk.fusion.Sketch = sketches.add(xyPlane)
-    # Draw a circle.
-    circles = sketch.sketchCurves.sketchCircles
-    circle = circles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), radius)
-    # Draw a line to use as the axis of revolution.
-    lines = sketch.sketchCurves.sketchLines
-    axisLine = lines.addByTwoPoints(adsk.core.Point3D.create(-radius, 0, 0), adsk.core.Point3D.create(radius, 0, 0))
-    # Get the profile defined by half of the circle.
-    prof = sketch.profiles.item(0)
-    # Create an revolution input to be able to define the input needed for a revolution
-    # while specifying the profile and that a new component is to be created
-    revolves = component.features.revolveFeatures
-    revInput = revolves.createInput(prof, axisLine, adsk.fusion.FeatureOperations.NewComponentFeatureOperation)
-    # Define that the extent is an angle of 2*pi to get a sphere
-    angle = adsk.core.ValueInput.createByReal(2*math.pi)
-    revInput.setAngleExtent(False, angle)
-    # Create the extrusion.
-    ext = revolves.add(revInput)
-    # Get the root component
-    rootComp = design.rootComponent
-    # Get the first Occurrence
-    occs = rootComp.occurrences
-    occ: adsk.fusion.Occurrence = occs.item(0)
-    mat: adsk.core.Matrix3D = occ.transform
-    # Matrix translation
-    mat.translation = origin
-    # set transform
-    occ.transform = mat
-    # snapshot - Determining the position is important!!!
-    design.snapshots.add()
-    body = ext.bodies.item(0)
-    return body 
+        # Find the sketch named "0"
+        sketch0 = None
+        for sketch in rootComp.sketches:
+            if sketch.name == "0":
+                sketch0 = sketch
+                break
 
+        if not sketch0:
+            ui.messageBox('Sketch "0" not found.')
+            return
 
-def getBodyFromBooleanOperation(design: adsk.fusion.Design, body1: adsk.fusion.BRepBody, body2: adsk.fusion.BRepBody) -> adsk.fusion.BRepBody:
-    """ Creates a boolean operation between two bodies """
-    model = design.activeComponent
-    features = model.features
-    bodyCollection = adsk.core.ObjectCollection.create()
-    bodyCollection.add(body2)
-    combineFeatures = features.combineFeatures
-    combineFeatureInput = combineFeatures.createInput(body1, bodyCollection)
-    combineFeatureInput.operation = 1
-    combineFeatureInput.isKeepToolBodies = False
-    combineFeatureInput.isNewComponent = False
-    returnValue = combineFeatures.add(combineFeatureInput)
-    part = returnValue.bodies[0]
-    return part
+        # Extrude all profiles in the sketch named "0" that are not contained within other profiles
+        extrudes = rootComp.features.extrudeFeatures
+        for prof in sketch0.profiles:
+            isContained = False
+            for otherProf in sketch0.profiles:
+                if prof != otherProf and isProfileContainedBy(prof, otherProf):
+                    isContained = True
+                    break
+            if not isContained:
+                extInput = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                distance = adsk.core.ValueInput.createByReal(-0.508)  # Change the distance as needed
+                extInput.setDistanceExtent(False, distance)
+                bod=extrudes.add(extInput)
+                model.append(bod.bodies[0])
+        return model
+        ui.messageBox('DXF imported and sketch "0" extruded successfully.')
+    
+    except:
+        if ui:
+            ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+    
+def isProfileContainedBy(profile1, profile2):
+    bbox1 = profile1.boundingBox
+    bbox2 = profile2.boundingBox
+    return (bbox1.minPoint.x >= bbox2.minPoint.x and
+        bbox1.minPoint.y >= bbox2.minPoint.y and
+        bbox1.maxPoint.x <= bbox2.maxPoint.x and
+        bbox1.maxPoint.y <= bbox2.maxPoint.y)

@@ -12,13 +12,16 @@ Creates a preset list of parameters to use as a starting point for experimenting
 ### TemplateMaker:
 Automates DXF import for standard luan templates by assuming all outlines and holes are on layer 0 and that luan is always 0.2 inches thick. 
 
+### TemplateMaker+CAM:
+Automates DXF import AND G-Code output for luan templates. 
+
 ### Triangulator:
 Generates a series of triangles from a CSV file. This is useful for measuring a compound radius.
 
 ### Spheres:
 Just for fun. Makes 100 randomly sized non-intersecting spheres.
 
-To use these scripts you will need an up-to-date Fusion license. To use the scripts drop them in your scripts folder, usually "user\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\Scripts" You may also need to create a settings.json file with the following paths:
+To use the scripts just drop them in your scripts folder, usually "user\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\Scripts" You may also need to create a settings.json file with the following paths:
 
 ```json
 {
