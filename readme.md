@@ -10,10 +10,10 @@ Creates a custom UI element that lets you adjust a parametric spiral staircase m
 Creates a preset list of parameters to use as a starting point for experimenting with parametric modeling techniques. This shows how passing in a string can create a function and how a while loop can be used to create a collection of parameters.
 
 ### TemplateMaker:
-Automates DXF import for standard luan templates by assuming all outlines and holes are on layer 0 and that luan is always 0.2 inches thick. 
+Automates DXF import for standard luan templates by assuming all outlines and holes are on layer "0", that all scribed lines are on layer "scribe" and that luan is always 0.2 inches thick. 
 
 ### TemplateMaker+CAM:
-Automates DXF import AND G-Code output for luan templates. 
+Works like TemplateMaker but also automates DXF import AND G-Code output for luan templates. 
 
 ### Triangulator:
 Generates a series of triangles from a CSV file. This is useful for measuring a compound radius.
