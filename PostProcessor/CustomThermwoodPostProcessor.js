@@ -1,6 +1,6 @@
 /**
-Custom Post Processor for Thermwood Machines Created by The Heirloom Companies
-    Copyright (C) 2024  Joseph Spencer
+ This is a custom Post Processor for modified Thermwood Machines created by The Heirloom Companies
+    Copyright (C) 2024 Joseph Spencer
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -14,13 +14,12 @@ Custom Post Processor for Thermwood Machines Created by The Heirloom Companies
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 */
 
-description = "Thermwood 3-Axis";
+description = "Custom Thermwood 3-Axis";
 vendor = "Thermwood";
-vendorUrl = "http://www.thermwood.com";
-legal = "GNU Copyright (C) 2024 by Heirloom Stair and Iron";
+vendorUrl = "https://theheirloomcompanies.com";
+legal = "Copyright (C) 2024 Joseph Spencer";
 certificationLevel = 2;
 minimumRevision = 45702;
 
@@ -409,8 +408,6 @@ function onOpen() {
     return;
   }
   writeBlock(gFormat.format(9), "F" + getProperty("tangency"), formatComment("Tangency Factor"));
-  //var dimensionString = getDescription + " huh";
-  writeBlock(dimensionString);
   writeBlock("SET XSHIFT=2.00");
   writeBlock("SET YSHIFT=6.00");
   writeBlock("SET ZSHIFT=0.00");
@@ -1385,36 +1382,13 @@ function writeRetract() {
 }
 
 function onClose() {
-
-  //writeln("");
-
-  //onCommand(COMMAND_STOP_SPINDLE);
-  //setCoolant(COOLANT_OFF);
-
-  //writeBlock(mFormat.format(990));
-
-  //writeRetract(Z);
-
-  //setWorkPlane(new Vector(0, 0, 0)); // reset working plane
-
-  //xOutput.reset();
-  //yOutput.reset();
-  //writeRetract(X, Y);
-
-  //onImpliedCommand(COMMAND_END);
-  //writeBlock(gFormat.format(990));
-  //onImpliedCommand(COMMAND_STOP_SPINDLE);
- //writeBlock(gFormat.format(30)); // stop program, spindle stop, coolant off
-
- //NEW STUFF
-
 writeln("");
 writeBlock(mFormat.format(5));
 writeBlock(gFormat.format(990));
 writeBlock(gFormat.format(90), gFormat.format(0), "Z0");
 writeBlock("X0. ", "Y0.")
 writeln("M98PENDTIME.SUBL1")
-writeBlock(mFormat.format(02));
+writeBlock(mFormat.format(0o2));
 }
 
 function setProperty(property, value) {
