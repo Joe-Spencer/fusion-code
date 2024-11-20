@@ -190,18 +190,13 @@ def run(context):
                 ui.messageBox("Scribe sketch found")
                 scribe_sketch = sketch
                 break
-        
-
-
+        input=setup.operations.createInput('trace')
         geometry = []
         for profile in scribe_sketch.profiles:
             for curve in profile.profileLoops[0].profileCurves:
                 geometry.append(curve.sketchEntity)
         traceOP = setup.operations.add(input)
-        # contourParam: adsk.cam.CadContours2dParameterValue = traceOP.parameters.itemByName('contours').value
-        # curveSelections = contourParam.getCurveSelections()
-        # chain = curveSelections.createNewChainSelection()
-        input=setup.operations.createInput('trace')
+
 
         #################### finishing tool preset ####################
         # get a tool preset from the finishing tool
@@ -246,6 +241,7 @@ def run(context):
         #################### generate operations ####################
         # list the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
+        operations.add(adaptiveOp)
         operations.add(parallelOp)
 
         # create progress bar
@@ -273,21 +269,25 @@ def run(context):
 
         #################### ncProgram and post-processing ####################
         # get the post library from library manager
+        ui.messageBox("Getting post library: "+ str(libraryManager.postLibrary))
         postLibrary = libraryManager.postLibrary
 
         # query post library to get postprocessor list
-        postQuery = postLibrary.createQuery(adsk.cam.LibraryLocations.Fusion360LibraryLocation)
+        ui.messageBox("Querying post library: "+ str(adsk.cam.LibraryLocations.LocalLibraryLocation))
+        postQuery = postLibrary.createQuery(adsk.cam.LibraryLocations.LocalLibraryLocation)
         postQuery.vendor = "Thermwood"
         postQuery.capability = adsk.cam.PostCapabilities.Milling
         postConfigs = postQuery.execute()
 
         # find the "XYZ" post in the post library and import it to local library
         for config in postConfigs:
-            ui.messageBox("config found"+config.description)
-            if config.description == 'Thermwood':
+            ui.messageBox("config found: "+config.description)
+            if config.description == 'Custom Thermwood 3-Axis':
                 url = adsk.core.URL.create("user://")
-                ui.messageBox("pp found")
+                # url= cam.genericPostFolder + "/" + "CustomThermwood - v3.cps"
+                # url = adsk.core.URL.create(url)
                 importedURL = postLibrary.importPostConfiguration(config, url, "Thermwood")
+                ui.messageBox("Post imported: "+importedURL.toString())
 
         # get the imported local post config
         postConfig = postLibrary.postConfigurationAtURL(importedURL)

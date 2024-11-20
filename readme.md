@@ -13,7 +13,7 @@ Creates a preset list of parameters to use as a starting point for experimenting
 Automates DXF import for standard luan templates by assuming all outlines and holes are on layer "0", that all scribed lines are on layer "scribe" and that the luan is always 0.2 inches thick. 
 
 ### TemplateMaker+CAM:
-Works like TemplateMaker but also automates G-Code output.
+Works like TemplateMaker but also automates setup creation, toolpathing and G-Code output.
 
 ### Triangulator:
 Generates a series of triangles from a CSV file. This is useful for measuring a compound radius.
