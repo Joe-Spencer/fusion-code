@@ -241,7 +241,6 @@ def run(context):
         #################### generate operations ####################
         # list the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
-        operations.add(adaptiveOp)
         operations.add(parallelOp)
 
         # create progress bar
