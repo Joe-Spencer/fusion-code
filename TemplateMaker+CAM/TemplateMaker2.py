@@ -190,12 +190,29 @@ def run(context):
                 ui.messageBox("Scribe sketch found")
                 scribe_sketch = sketch
                 break
-        input=setup.operations.createInput('trace')
-        geometry = []
-        for profile in scribe_sketch.profiles:
-            for curve in profile.profileLoops[0].profileCurves:
-                geometry.append(curve.sketchEntity)
-        traceOP = setup.operations.add(input)
+        #################### IDK ABOUT THIS PART IM JUST TRYIN STUFF ####################
+        ''' Produce the toolpath for the closed through pocket using API '''
+
+        input: adsk.cam.OperationInput = setup.operations.createInput('trace')
+        input.displayName = 'scribe'
+        input.tool = tool
+        input.parameters.itemByName('doMultipleDepths').expression = 'true'
+        pocketHeightIncludingBottomOffsetInMM: float = round((.125  * 10) + 2, 3)  # Convert cm to mm and add 2 mm from bottomHeight_offset
+        input.parameters.itemByName('maximumStepdown').expression = str(pocketHeightIncludingBottomOffsetInMM / 2) + ' mm' # Divide total height by 2 to get 2 passes
+
+        # Apply the sketch boundary to the operation input
+        pocketSelection: adsk.cam.CadContours2dParameterValue = input.parameters.itemByName('curves').value
+        chains: adsk.cam.CurveSelections = pocketSelection.getCurveSelections()
+        chain: adsk.cam.SketchSelection = chains.createNewSketchSelection()
+        chain.inputGeometry = [sketch]
+        chain.loopType = adsk.cam.LoopTypes.OnlyOutsideLoops
+        chain.sideType = adsk.cam.SideTypes.AlwaysInsideSideType
+        pocketSelection.applyCurveSelections(chains)
+
+        # Add to the setup
+        op: adsk.cam.OperationBase = setup.operations.add(input)   
+
+        scribeOP = op
 
 
         #################### finishing tool preset ####################
@@ -242,6 +259,7 @@ def run(context):
         # list the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
         operations.add(parallelOp)
+        operations.add(scribeOP)
 
         # create progress bar
         progressDialog = ui.createProgressDialog()
