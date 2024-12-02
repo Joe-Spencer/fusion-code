@@ -9,7 +9,7 @@ from enum import Enum
 MILLING_TOOL_LIBRARY = 'Milling Tools (Metric)'
 
 # Some material properties for feed and speed calculation
-WOOD_CUTTING_SPEED = 300  # mm/min
+WOOD_CUTTING_SPEED = 508  # mm/min
 WOOD_FEED_PER_TOOTH = 0.1 # mm/tooth
 
 # some tool preset name (which we know exists for the selected tools)
@@ -93,7 +93,7 @@ def run(context):
         useHardCodedUrl = False
         if useHardCodedUrl:
             # we could use a library URl directly if we know its address
-            libUrl = 'systemlibraryroot://Samples/Milling Tools (Metric).json'
+            libUrl = 'systemlibraryroot://Samples/Milling Tools (Inch).json'
             url = adsk.core.URL.create(libUrl)
 
         else:
@@ -190,9 +190,7 @@ def run(context):
                 ui.messageBox("Scribe sketch found")
                 scribe_sketch = sketch
                 break
-        #################### IDK ABOUT THIS PART IM JUST TRYIN STUFF ####################
-        ''' Produce the toolpath for the closed through pocket using API '''
-
+            
         input: adsk.cam.OperationInput = setup.operations.createInput('trace')
         input.displayName = 'scribe'
         input.tool = tool
@@ -286,11 +284,10 @@ def run(context):
 
         #################### ncProgram and post-processing ####################
         # get the post library from library manager
-        ui.messageBox("Getting post library: "+ str(libraryManager.postLibrary))
+
         postLibrary = libraryManager.postLibrary
 
         # query post library to get postprocessor list
-        ui.messageBox("Querying post library: "+ str(adsk.cam.LibraryLocations.LocalLibraryLocation))
         postQuery = postLibrary.createQuery(adsk.cam.LibraryLocations.LocalLibraryLocation)
         postQuery.vendor = "Thermwood"
         postQuery.capability = adsk.cam.PostCapabilities.Milling
@@ -298,7 +295,6 @@ def run(context):
 
         # find the "XYZ" post in the post library and import it to local library
         for config in postConfigs:
-            ui.messageBox("config found: "+config.description)
             if config.description == 'Custom Thermwood 3-Axis':
                 url = adsk.core.URL.create("user://")
                 # url= cam.genericPostFolder + "/" + "CustomThermwood - v3.cps"
@@ -324,7 +320,7 @@ def run(context):
         ncParameters.itemByName('nc_program_output_folder').value.value = desktopDirectory
         
         # select the operations to generate
-        ncInput.operations = [adaptiveOp, parallelOp]
+        ncInput.operations = [scribeOP, parallelOp]
 
         # add a new ncprogram from the ncprogram input
         newProgram = cam.ncPrograms.add(ncInput)
@@ -436,7 +432,6 @@ def createSamplePart(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
                 bod=extrudes.add(extInput)
                 model.append(bod.bodies[0])
         return model
-        ui.messageBox('DXF imported and sketch "0" extruded successfully.')
     
     except:
         if ui:
