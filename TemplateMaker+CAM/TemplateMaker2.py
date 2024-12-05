@@ -78,38 +78,23 @@ def run(context):
         # get the CAM product
         products = doc.products
 
-        #################### create sample part ####################
+        #################### create template bodies ####################
 
         models = createSamplePart(design)
+
 
         #################### select cutting tools ####################
 
         # get the tool libraries from the library manager
         camManager = adsk.cam.CAMManager.get()
-        libraryManager = camManager.libraryManager
-        toolLibraries = libraryManager.toolLibraries
+        libraryManager: adsk.cam.CAMLibraryManager = camManager.libraryManager
+        toolLibraries: adsk.cam.ToolLibraries = libraryManager.toolLibraries
 
-        url = None
-        useHardCodedUrl = False
-        if useHardCodedUrl:
-            # we could use a library URl directly if we know its address
-            libUrl = 'systemlibraryroot://Samples/Milling Tools (Inch).json'
-            url = adsk.core.URL.create(libUrl)
+        libUrl = 'systemlibraryroot://Samples/Milling Tools (Inch).json'
+        url = adsk.core.URL.create(libUrl)
 
-        else:
-            # or we can use the tool library objects
-            # fusion360 folder in the tool library
-            fusionFolder = toolLibraries.urlByLocation(adsk.cam.LibraryLocations.Fusion360LibraryLocation)
-            fusionLibs = getLibrariesURLs(toolLibraries, fusionFolder)
-            # search the required library url in the libraries
-            for libUrl in fusionLibs:
-                if MILLING_TOOL_LIBRARY in libUrl:
-                    url = adsk.core.URL.create(libUrl)
-                    break
-        
         # load tool library
         toolLibrary = toolLibraries.toolLibraryAtURL(url)
-
         # create some variables to host the milling tools which will be used in the operations
         faceTool = None
         adaptiveTool = None
@@ -118,18 +103,20 @@ def run(context):
         # searchig the face mill and the bull nose using a loop for the roughing operations
         for tool in toolLibrary:
             # read the tool type
-            toolType = tool.parameters.itemByName('tool_type').value.value 
-            
+            diameter = tool.parameters.itemByName('tool_diameter').value.value
+            toolType = tool.parameters.itemByName('tool_type').value.value
+
             # select the first face tool found
             if toolType == ToolType.FACE_MILL.value and not faceTool:
                 faceTool = tool  
+                faceTool.parameters.itemByName('tool_number').value.value = 3
+
             
             # search the roughing tool
-            elif toolType == ToolType.BULL_NOSE_END_MILL.value and not adaptiveTool:
+            if toolType == "spot drill":
                 # we look for a buul nose end mill tool larger or equal to 12mm but less than 14mm
-                diameter = tool.parameters.itemByName('tool_diameter').value.value
-                if diameter >= 1.2 and diameter < 1.4: 
-                    adaptiveTool = tool
+                adaptiveTool = tool
+                adaptiveTool.parameters.itemByName('tool_number').value.value = 7
 
             # exit when the 2 tools are found
             if faceTool and adaptiveTool:
@@ -164,24 +151,6 @@ def run(context):
         # set setup origin
         setup.parameters.itemByName('wcs_origin_boxPoint').value.value = SetupWCSPoint.BOTTOM_XMAX_YMAX.value
 
-        #################### adaptive operations ####################
-        input = setup.operations.createInput('adaptive')
-        input.tool = adaptiveTool
-        input.displayName = 'Adaptive Roughing'
-        input.parameters.itemByName('tolerance').expression = '0.1 mm' 
-        input.parameters.itemByName('maximumStepdown').expression = '5 mm' 
-        input.parameters.itemByName('fineStepdown').expression = '0.25 * maximumStepdown'
-        input.parameters.itemByName('flatAreaMachining').expression = 'false'
-
-        # look if there is a tool preset related to WOOD roughing
-        presets = adaptiveTool.presets.itemsByName(WOOD_PRESET_ROUGHING)
-        if len(presets) > 0:
-            # we pick and use the first preset found
-            adaptivePreset = presets[0]
-            input.toolPreset = adaptivePreset
-
-        # add the operation to the setup
-        adaptiveOp = setup.operations.add(input)
 
         #################### scribe operation ####################
         scribe_sketch = None
@@ -190,13 +159,11 @@ def run(context):
                 ui.messageBox("Scribe sketch found")
                 scribe_sketch = sketch
                 break
-            
+
         input: adsk.cam.OperationInput = setup.operations.createInput('trace')
         input.displayName = 'scribe'
-        input.tool = tool
-        input.parameters.itemByName('doMultipleDepths').expression = 'true'
-        pocketHeightIncludingBottomOffsetInMM: float = round((.125  * 10) + 2, 3)  # Convert cm to mm and add 2 mm from bottomHeight_offset
-        input.parameters.itemByName('maximumStepdown').expression = str(pocketHeightIncludingBottomOffsetInMM / 2) + ' mm' # Divide total height by 2 to get 2 passes
+        input.tool = adaptiveTool
+        input.parameters.itemByName('axialOffset').expression = '-1 mm'
 
         # Apply the sketch boundary to the operation input
         pocketSelection: adsk.cam.CadContours2dParameterValue = input.parameters.itemByName('curves').value
@@ -209,9 +176,23 @@ def run(context):
 
         # Add to the setup
         op: adsk.cam.OperationBase = setup.operations.add(input)   
-
         scribeOP = op
 
+        #################### bore operation ####################
+        recognizedHolesInput = adsk.cam.RecognizedHolesInput.create()
+        for model in models:
+            holeGroups: adsk.cam.RecognizedHoleGroups = adsk.cam.RecognizedHoleGroup.recognizeHoleGroupsWithInput(model, recognizedHolesInput)
+        input = setup.operations.createInput('bore')
+        input.tool = finishingTool
+        input.displayName = 'Bore'
+        faces: list[adsk.fusion.BRepFace] = []
+        for holeGroup in holeGroups:
+            for i in range(holeGroup.count):
+                hole: adsk.cam.RecognizedHole = holeGroup.item(i)
+                firstSegment: adsk.cam.RecognizedHoleSegment = hole.segment(0)
+                faces.extend(firstSegment.faces)
+            holeSelection: adsk.cam.CadObjectParameterValue = input.parameters.itemByName('holeFaces').value
+            holeSelection.value = faces
 
         #################### finishing tool preset ####################
         # get a tool preset from the finishing tool
@@ -221,8 +202,7 @@ def run(context):
             # use the first WOOD finishing preset found
             finishingPreset = presets[0]
 
-
-        #################### cutting operations ####################
+        #################### finish operation ####################
         input = setup.operations.createInput('parallel')
         input.tool = finishingTool
         input.displayName = 'Parallel Cutting'
@@ -252,7 +232,6 @@ def run(context):
             chain.inputGeometry = [limitEdge]
             cadcontours2dParam.applyCurveSelections(chains)
 
-
         #################### generate operations ####################
         # list the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
@@ -280,11 +259,9 @@ def run(context):
         # generation done
         progressDialog.progressValue = 100
         progressDialog.hide()
-            
 
         #################### ncProgram and post-processing ####################
         # get the post library from library manager
-
         postLibrary = libraryManager.postLibrary
 
         # query post library to get postprocessor list
@@ -348,8 +325,6 @@ def run(context):
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
 
-#################### Some functions to make our life easier ####################
-
 def getLibrariesURLs(libraries: adsk.cam.ToolLibraries, url: adsk.core.URL):
     ''' Return the list of libraries URL in the specified library '''
     urls: list[str] = []
@@ -379,8 +354,6 @@ def getToolsFromLibraryByTypeDiameterRangeAndMinFluteLength(toolLibrary: adsk.ca
         tools.append(result.tool)
     return tools
 
-
-#################### CAD creation ####################
 
 def createSamplePart(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
     ui = None
