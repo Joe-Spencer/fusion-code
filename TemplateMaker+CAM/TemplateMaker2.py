@@ -193,13 +193,8 @@ def run(context):
         # create the bore operation input
         input = setup.operations.createInput('bore')
         input.tool = boreTool
-        input.displayName = 'Bore'
-        # Print available parameters
-        param_list = []
-        for param in input.parameters:
-            param_list.append(param.name)
-
-        ui.messageBox(f"Available parameters for 'bore' operation:\n{param_list}")
+        input.displayName = 'bore'
+       
         input.parameters.itemByName('holeMode').expression = "'diameter'" 
         input.parameters.itemByName('holeDiameterMinimum').expression = '1 mm'  # Minimum diameter  
         input.parameters.itemByName('holeDiameterMaximum').expression = '20 mm'  # Maximum diameter
@@ -216,34 +211,22 @@ def run(context):
             finishingPreset = presets[0]
 
         #################### finish operation ####################
-        input = setup.operations.createInput('parallel')
-        input.tool = finishingTool
-        input.displayName = 'Parallel Cutting'
-        input.parameters.itemByName('tolerance').expression = '0.01 mm'
-        input.parameters.itemByName('cuspHeightStepover').expression = '0.005 mm'
-        input.parameters.itemByName('boundaryMode').expression = "'selection'"
-        if finishingPreset:
-            # assign the finishig tool preset
-            input.toolPreset = finishingPreset
+        input = setup.operations.createInput('contour2d')
+        input.tool = boreTool
+        input.displayName = 'cutout'
+         # Print available parameters
+        param_list = []
+        for param in input.parameters:
+            if 'mult' in param.name.lower():
+                param_list.append(param.name)
+        ui.messageBox(f"Available parameters for 'bore' operation:\n{param_list}")
+        input.parameters.itemByName('bottomHeight_offset').expression = '-0.204 in'
+        finalOp = setup.operations.add(input)
+        cadcontours2dParam: adsk.cam.CadContours2dParameterValue = finalOp.parameters.itemByName('contours').value
+        chains = cadcontours2dParam.getCurveSelections()
+        chains.createNewSilhouetteSelection()
+        cadcontours2dParam.applyCurveSelections(chains)
 
-        # add the operation to the setup
-        parallelOp = setup.operations.add(input)
-
-        # lets use a contour for the sake of demonstration
-        limitEdge = None
-        for e in models[0].edges:
-            # this is the inner one: intersection of a plane and a sphere making up a circle
-            if e.geometry.curveType == adsk.core.Curve3DTypes.Circle3DCurveType:
-                limitEdge = e
-                break
-
-        if limitEdge:
-            # apply the limits edge to the operation
-            cadcontours2dParam: adsk.cam.CadContours2dParameterValue = parallelOp.parameters.itemByName('machiningBoundarySel').value
-            chains = cadcontours2dParam.getCurveSelections()
-            chain = chains.createNewChainSelection()
-            chain.inputGeometry = [limitEdge]
-            cadcontours2dParam.applyCurveSelections(chains)
 
         #################### generate operations ####################
         # list the valid operations to generate
@@ -251,6 +234,7 @@ def run(context):
         # operations.add(parallelOp)
         operations.add(scribeOP)
         operations.add(boreOP)
+        operations.add(finalOp)
 
         # create progress bar
         progressDialog = ui.createProgressDialog()
@@ -311,10 +295,10 @@ def run(context):
         ncParameters.itemByName('nc_program_output_folder').value.value = desktopDirectory
         
         # select the operations to generate
-        ncInput.operations = [scribeOP, parallelOp]
+        ncInput.operations = [scribeOP, boreOP]
 
         # add a new ncprogram from the ncprogram input
-        newProgram = cam.ncPrograms.add(ncInput)
+        newProgram = cam.ncPrograms.add(ncInput) 
 
         # set post processor
         newProgram.postConfiguration = postConfig
