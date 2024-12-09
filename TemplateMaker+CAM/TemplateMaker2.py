@@ -98,6 +98,7 @@ def run(context):
         # create some variables to host the milling tools which will be used in the operations
         faceTool = None
         adaptiveTool = None
+        boreTool = None
         finishingTool = None
 
         # searchig the face mill and the bull nose using a loop for the roughing operations
@@ -114,12 +115,16 @@ def run(context):
             
             # search the roughing tool
             if toolType == "spot drill":
-                # we look for a buul nose end mill tool larger or equal to 12mm but less than 14mm
                 adaptiveTool = tool
                 adaptiveTool.parameters.itemByName('tool_number').value.value = 7
 
+            # search the boring tool
+            if toolType == "flat end mill" and diameter >= 0.12 and diameter < 0.25:
+                boreTool = tool 
+                boreTool.parameters.itemByName('tool_number').value.value = 4
+
             # exit when the 2 tools are found
-            if faceTool and adaptiveTool:
+            if faceTool and adaptiveTool and boreTool:
                 break
 
         # searching a ball end mill tool with diameter between 6 mm and 10 mm with a minimum flute length of 20.001mm, using a query
@@ -179,20 +184,28 @@ def run(context):
         scribeOP = op
 
         #################### bore operation ####################
-        recognizedHolesInput = adsk.cam.RecognizedHolesInput.create()
-        for model in models:
-            holeGroups: adsk.cam.RecognizedHoleGroups = adsk.cam.RecognizedHoleGroup.recognizeHoleGroupsWithInput(model, recognizedHolesInput)
+
+        for sketch in design.rootComponent.sketches:
+            if sketch.name == "Bore":
+                ui.messageBox("Bore sketch found")
+                break
+
+        # create the bore operation input
         input = setup.operations.createInput('bore')
-        input.tool = finishingTool
+        input.tool = boreTool
         input.displayName = 'Bore'
-        faces: list[adsk.fusion.BRepFace] = []
-        for holeGroup in holeGroups:
-            for i in range(holeGroup.count):
-                hole: adsk.cam.RecognizedHole = holeGroup.item(i)
-                firstSegment: adsk.cam.RecognizedHoleSegment = hole.segment(0)
-                faces.extend(firstSegment.faces)
-            holeSelection: adsk.cam.CadObjectParameterValue = input.parameters.itemByName('holeFaces').value
-            holeSelection.value = faces
+        # Print available parameters
+        param_list = []
+        for param in input.parameters:
+            param_list.append(param.name)
+
+        ui.messageBox(f"Available parameters for 'bore' operation:\n{param_list}")
+        input.parameters.itemByName('holeMode').expression = "'diameter'" 
+        input.parameters.itemByName('holeDiameterMinimum').expression = '1 mm'  # Minimum diameter  
+        input.parameters.itemByName('holeDiameterMaximum').expression = '20 mm'  # Maximum diameter
+        chain: adsk.cam.SketchSelection = chains.createNewSketchSelection()
+        op: adsk.cam.OperationBase = setup.operations.add(input)   
+        boreOP = op
 
         #################### finishing tool preset ####################
         # get a tool preset from the finishing tool
@@ -235,8 +248,9 @@ def run(context):
         #################### generate operations ####################
         # list the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
-        operations.add(parallelOp)
+        # operations.add(parallelOp)
         operations.add(scribeOP)
+        operations.add(boreOP)
 
         # create progress bar
         progressDialog = ui.createProgressDialog()
