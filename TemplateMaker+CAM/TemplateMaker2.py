@@ -96,42 +96,33 @@ def run(context):
         # load tool library
         toolLibrary = toolLibraries.toolLibraryAtURL(url)
         # create some variables to host the milling tools which will be used in the operations
-        faceTool = None
-        adaptiveTool = None
+        linerTool = None
         boreTool = None
         finishingTool = None
-
+        
         # searchig the face mill and the bull nose using a loop for the roughing operations
         for tool in toolLibrary:
             # read the tool type
-            diameter = tool.parameters.itemByName('tool_diameter').value.value
+            diameter = tool.parameters.itemByName('tool_diameter').value.value /2.54
             toolType = tool.parameters.itemByName('tool_type').value.value
-
-            # select the first face tool found
-            if toolType == ToolType.FACE_MILL.value and not faceTool:
-                faceTool = tool  
-                faceTool.parameters.itemByName('tool_number').value.value = 3
-
+            
+            if toolType == "flat end mill" and diameter >= 0.2 and diameter < 0.26:
+                finishingTool = tool
+                finishingTool.parameters.itemByName('tool_number').value.value = 3
             
             # search the roughing tool
             if toolType == "spot drill":
-                adaptiveTool = tool
-                adaptiveTool.parameters.itemByName('tool_number').value.value = 7
+                linerTool = tool
+                linerTool.parameters.itemByName('tool_number').value.value = 7
 
             # search the boring tool
-            if toolType == "flat end mill" and diameter >= 0.12 and diameter < 0.25:
+            if toolType == "flat end mill" and diameter >= 0.125 and diameter < 0.13:
                 boreTool = tool 
                 boreTool.parameters.itemByName('tool_number').value.value = 4
 
             # exit when the 2 tools are found
-            if faceTool and adaptiveTool and boreTool:
+            if finishingTool and linerTool and boreTool:
                 break
-
-        # searching a ball end mill tool with diameter between 6 mm and 10 mm with a minimum flute length of 20.001mm, using a query
-        finishingTools = getToolsFromLibraryByTypeDiameterRangeAndMinFluteLength(toolLibrary, ToolType.BALL_END_MILL.value, 0.6, 1, 2.0001)
-
-        # for this example, we select the first tool found as our finishing tool
-        finishingTool = finishingTools[0]
 
 
         #################### create setup ####################
@@ -150,7 +141,7 @@ def run(context):
         # set offset mode
         setup.parameters.itemByName('job_stockOffsetMode').expression = "'simple'"
         # set offset stock side
-        setup.parameters.itemByName('job_stockOffsetSides').expression = '1 mm'
+        setup.parameters.itemByName('job_stockOffsetSides').expression = '12.6 mm'
         # set offset stock top
         setup.parameters.itemByName('job_stockOffsetTop').expression = '0 mm'
         # set setup origin
@@ -161,14 +152,15 @@ def run(context):
         scribe_sketch = None
         for sketch in design.rootComponent.sketches:
             if sketch.name == "Scribe":
-                ui.messageBox("Scribe sketch found")
                 scribe_sketch = sketch
                 break
-
+        if not scribe_sketch:
+            ui.messageBox('Sketch "Scribe" not found.')
+            return
         input: adsk.cam.OperationInput = setup.operations.createInput('trace')
         input.displayName = 'scribe'
-        input.tool = adaptiveTool
-        input.parameters.itemByName('axialOffset').expression = '-1 mm'
+        input.tool = linerTool
+        input.parameters.itemByName('axialOffset').expression = '-2 mm'
 
         # Apply the sketch boundary to the operation input
         pocketSelection: adsk.cam.CadContours2dParameterValue = input.parameters.itemByName('curves').value
@@ -178,26 +170,26 @@ def run(context):
         chain.loopType = adsk.cam.LoopTypes.OnlyOutsideLoops
         chain.sideType = adsk.cam.SideTypes.AlwaysInsideSideType
         pocketSelection.applyCurveSelections(chains)
-
+        input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
+        input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
         # Add to the setup
         op: adsk.cam.OperationBase = setup.operations.add(input)   
         scribeOP = op
 
         #################### bore operation ####################
-
-        for sketch in design.rootComponent.sketches:
-            if sketch.name == "Bore":
-                ui.messageBox("Bore sketch found")
-                break
-
         # create the bore operation input
         input = setup.operations.createInput('bore')
         input.tool = boreTool
         input.displayName = 'bore'
-       
+        input.parameters.itemByName('useStockToLeave').value.value = True
+        input.parameters.itemByName('stockToLeave').expression = '-0.1 mm'
         input.parameters.itemByName('holeMode').expression = "'diameter'" 
         input.parameters.itemByName('holeDiameterMinimum').expression = '1 mm'  # Minimum diameter  
         input.parameters.itemByName('holeDiameterMaximum').expression = '20 mm'  # Maximum diameter
+        input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
+        input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
+        input.parameters.itemByName('useAngle').value.value = True
+        input.parameters.itemByName('plungeAngle').expression = '8'
         chain: adsk.cam.SketchSelection = chains.createNewSketchSelection()
         op: adsk.cam.OperationBase = setup.operations.add(input)   
         boreOP = op
@@ -214,19 +206,16 @@ def run(context):
         input = setup.operations.createInput('contour2d')
         input.tool = boreTool
         input.displayName = 'cutout'
-         # Print available parameters
-        param_list = []
-        for param in input.parameters:
-            if 'mult' in param.name.lower():
-                param_list.append(param.name)
-        ui.messageBox(f"Available parameters for 'bore' operation:\n{param_list}")
         input.parameters.itemByName('bottomHeight_offset').expression = '-0.204 in'
+        input.parameters.itemByName('doMultipleDepths').value.value = True
+        input.parameters.itemByName('maximumStepdown').expression = '0.1 in'
+        input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
+        input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
         finalOp = setup.operations.add(input)
         cadcontours2dParam: adsk.cam.CadContours2dParameterValue = finalOp.parameters.itemByName('contours').value
         chains = cadcontours2dParam.getCurveSelections()
         chains.createNewSilhouetteSelection()
         cadcontours2dParam.applyCurveSelections(chains)
-
 
         #################### generate operations ####################
         # list the valid operations to generate
@@ -293,9 +282,15 @@ def run(context):
         # make the path valid for Fusion by replacing \\ to / in the path
         desktopDirectory = os.path.expanduser("~/Desktop").replace('\\', '/') 
         ncParameters.itemByName('nc_program_output_folder').value.value = desktopDirectory
+        folderDlg = ui.createFolderDialog()
+        folderDlg.title = 'Select output folder for NC program'
+        folderDlg.initialDirectory = desktopDirectory
+        dialogResult = folderDlg.showDialog()
+        outputFolder = folderDlg.folder
+        ncParameters.itemByName('nc_program_output_folder').value.value = outputFolder
         
         # select the operations to generate
-        ncInput.operations = [scribeOP, boreOP]
+        ncInput.operations = [scribeOP, boreOP, finalOp]
 
         # add a new ncprogram from the ncprogram input
         newProgram = cam.ncPrograms.add(ncInput) 
