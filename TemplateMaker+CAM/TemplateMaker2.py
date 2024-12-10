@@ -79,8 +79,8 @@ def run(context):
         products = doc.products
 
         #################### create template bodies ####################
-
-        models = createSamplePart(design)
+        
+        models = createBodies(design)
 
 
         #################### select cutting tools ####################
@@ -95,6 +95,7 @@ def run(context):
 
         # load tool library
         toolLibrary = toolLibraries.toolLibraryAtURL(url)
+
         # create some variables to host the milling tools which will be used in the operations
         linerTool = None
         boreTool = None
@@ -129,12 +130,9 @@ def run(context):
         cam = adsk.cam.CAM.cast(products.itemByProductType("CAMProductType"))
         setups = cam.setups
         setupInput = setups.createInput(adsk.cam.OperationTypes.MillingOperation)
-        # create a list for the models to add to the setup Input 
-        # add the part to the model list
-        # models.append(part)
-        # pass the model list to the setup input
         setupInput.models = models
-        # create the setup and set some properties
+
+        # configure properties
         setup = setups.add(setupInput)
         setup.name = 'CAM Automation Script Sample'
         setup.stockMode = adsk.cam.SetupStockModes.RelativeBoxStock
@@ -149,6 +147,7 @@ def run(context):
 
 
         #################### scribe operation ####################
+        #Find the sketch named "Scribe"
         scribe_sketch = None
         for sketch in design.rootComponent.sketches:
             if sketch.name == "Scribe":
@@ -157,12 +156,14 @@ def run(context):
         if not scribe_sketch:
             ui.messageBox('Sketch "Scribe" not found.')
             return
+
+        # create the scribe operation input
         input: adsk.cam.OperationInput = setup.operations.createInput('trace')
         input.displayName = 'scribe'
         input.tool = linerTool
-        input.parameters.itemByName('axialOffset').expression = '-2 mm'
+        input.parameters.itemByName('axialOffset').expression = '-1.5 mm'
 
-        # Apply the sketch boundary to the operation input
+        # Apply the sketch to the operation input
         pocketSelection: adsk.cam.CadContours2dParameterValue = input.parameters.itemByName('curves').value
         chains: adsk.cam.CurveSelections = pocketSelection.getCurveSelections()
         chain: adsk.cam.SketchSelection = chains.createNewSketchSelection()
@@ -170,8 +171,9 @@ def run(context):
         chain.loopType = adsk.cam.LoopTypes.OnlyOutsideLoops
         chain.sideType = adsk.cam.SideTypes.AlwaysInsideSideType
         pocketSelection.applyCurveSelections(chains)
-        input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
+        input.parameters.itemByName('tool_spindleSpeed').expression = '15000 rpm'
         input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
+
         # Add to the setup
         op: adsk.cam.OperationBase = setup.operations.add(input)   
         scribeOP = op
@@ -194,17 +196,10 @@ def run(context):
         op: adsk.cam.OperationBase = setup.operations.add(input)   
         boreOP = op
 
-        #################### finishing tool preset ####################
-        # get a tool preset from the finishing tool
-        finishingPreset = None
-        presets = finishingTool.presets.itemsByName(WOOD_PRESET_FINISHING)
-        if len(presets) > 0:
-            # use the first WOOD finishing preset found
-            finishingPreset = presets[0]
-
         #################### finish operation ####################
+        # create the finish operation input
         input = setup.operations.createInput('contour2d')
-        input.tool = boreTool
+        input.tool = finishingTool
         input.displayName = 'cutout'
         input.parameters.itemByName('bottomHeight_offset').expression = '-0.204 in'
         input.parameters.itemByName('doMultipleDepths').value.value = True
@@ -212,15 +207,16 @@ def run(context):
         input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
         input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
         finalOp = setup.operations.add(input)
+
+        # Add silhouette selection to the geometries of finalOp
         cadcontours2dParam: adsk.cam.CadContours2dParameterValue = finalOp.parameters.itemByName('contours').value
         chains = cadcontours2dParam.getCurveSelections()
         chains.createNewSilhouetteSelection()
         cadcontours2dParam.applyCurveSelections(chains)
 
         #################### generate operations ####################
-        # list the valid operations to generate
+        # add the valid operations to generate
         operations = adsk.core.ObjectCollection.create()
-        # operations.add(parallelOp)
         operations.add(scribeOP)
         operations.add(boreOP)
         operations.add(finalOp)
@@ -229,7 +225,7 @@ def run(context):
         progressDialog = ui.createProgressDialog()
         progressDialog.isCancelButtonShown = False
         progressDialog.show('Generating operations...', '%p%', 0, 100)
-        adsk.doEvents() # allow Fusion to update so the progressDialog show up nicely
+        adsk.doEvents() 
 
         # generate the valid operations
         gtf = cam.generateToolpath(operations)
@@ -257,14 +253,11 @@ def run(context):
         postQuery.capability = adsk.cam.PostCapabilities.Milling
         postConfigs = postQuery.execute()
 
-        # find the "XYZ" post in the post library and import it to local library
+        # find "Custom Thermwood 3-Axis" post in the post library and import it to local library
         for config in postConfigs:
             if config.description == 'Custom Thermwood 3-Axis':
                 url = adsk.core.URL.create("user://")
-                # url= cam.genericPostFolder + "/" + "CustomThermwood - v3.cps"
-                # url = adsk.core.URL.create(url)
                 importedURL = postLibrary.importPostConfiguration(config, url, "Thermwood")
-                ui.messageBox("Post imported: "+importedURL.toString())
 
         # get the imported local post config
         postConfig = postLibrary.postConfigurationAtURL(importedURL)
@@ -273,19 +266,20 @@ def run(context):
         ncInput = cam.ncPrograms.createInput()
         ncInput.displayName = 'NC Program Sample'
 
-        # change some nc program parameters...
+        # change some nc program parameters
         ncParameters = ncInput.parameters
         ncParameters.itemByName('nc_program_filename').value.value = 'NCProgramSample'
         ncParameters.itemByName('nc_program_openInEditor').value.value = True
 
-        # set user desktop as output directory (Windows and Mac)
-        # make the path valid for Fusion by replacing \\ to / in the path
+        # set the defualt output folder for the NC program to desktop
         desktopDirectory = os.path.expanduser("~/Desktop").replace('\\', '/') 
         ncParameters.itemByName('nc_program_output_folder').value.value = desktopDirectory
+
+        # ask the user to select the output folder for the NC program
         folderDlg = ui.createFolderDialog()
         folderDlg.title = 'Select output folder for NC program'
         folderDlg.initialDirectory = desktopDirectory
-        dialogResult = folderDlg.showDialog()
+        folderDlg.showDialog()
         outputFolder = folderDlg.folder
         ncParameters.itemByName('nc_program_output_folder').value.value = outputFolder
         
@@ -298,17 +292,16 @@ def run(context):
         # set post processor
         newProgram.postConfiguration = postConfig
 
-        # change some post parameter
+        # modify tolerance and chord length
         postParameters = newProgram.postParameters
-        postParameters.itemByName('builtin_tolerance').value.value = 0.01  # NcProgram parameters is pass as it is to the postprocessor (it has no units)
-        postParameters.itemByName('builtin_minimumChordLength').value.value = 0.33  # NcProgram parameters is pass as it is to the postprocessor (it has no units)
+        postParameters.itemByName('builtin_tolerance').value.value = 0.01  
+        postParameters.itemByName('builtin_minimumChordLength').value.value = 0.33  
 
         # update/apply post parameters
         newProgram.updatePostParameters(postParameters)
 
         # set post options, by default post process only valid operations containing toolpath data
         postOptions = adsk.cam.NCProgramPostProcessOptions.create()
-        # postOptions.PostProcessExecutionBehaviors = adsk.cam.PostProcessExecutionBehaviors.PostProcessExecutionBehavior_PostAll
 
         # post-process
         newProgram.postProcess(postOptions)
@@ -348,7 +341,8 @@ def getToolsFromLibraryByTypeDiameterRangeAndMinFluteLength(toolLibrary: adsk.ca
     return tools
 
 
-def createSamplePart(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
+def createBodies(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
+    ''' Return a list of BRepBody entities created from the DXF file '''
     ui = None
     try:
         model=[]
@@ -404,6 +398,7 @@ def createSamplePart(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
     
 def isProfileContainedBy(profile1, profile2):
+    ''' Helper Function to check if a profile is contained by another profile '''
     bbox1 = profile1.boundingBox
     bbox2 = profile2.boundingBox
     return (bbox1.minPoint.x >= bbox2.minPoint.x and
