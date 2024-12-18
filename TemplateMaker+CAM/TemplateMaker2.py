@@ -134,7 +134,7 @@ def run(context):
 
         # configure properties
         setup = setups.add(setupInput)
-        setup.name = 'CAM Automation Script Sample'
+        setup.name = 'Preset Template Setup'
         setup.stockMode = adsk.cam.SetupStockModes.RelativeBoxStock
         # set offset mode
         setup.parameters.itemByName('job_stockOffsetMode').expression = "'simple'"
@@ -188,7 +188,7 @@ def run(context):
         input.parameters.itemByName('holeMode').expression = "'diameter'" 
         input.parameters.itemByName('holeDiameterMinimum').expression = '1 mm'  # Minimum diameter  
         input.parameters.itemByName('holeDiameterMaximum').expression = '20 mm'  # Maximum diameter
-        input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
+        input.parameters.itemByName('tool_spindleSpeed').expression = '13000 rpm'
         input.parameters.itemByName('tool_feedCutting').expression = '5000 mm/min'
         input.parameters.itemByName('useAngle').value.value = True
         input.parameters.itemByName('plungeAngle').expression = '8'
@@ -264,11 +264,11 @@ def run(context):
        
         # create NCProgramInput object
         ncInput = cam.ncPrograms.createInput()
-        ncInput.displayName = 'NC Program Sample'
+        ncInput.displayName = 'Template from preset'
 
         # change some nc program parameters
         ncParameters = ncInput.parameters
-        ncParameters.itemByName('nc_program_filename').value.value = 'NCProgramSample'
+        ncParameters.itemByName('nc_program_filename').value.value = 'TemplateFromPreset'
         ncParameters.itemByName('nc_program_openInEditor').value.value = True
 
         # set the defualt output folder for the NC program to desktop
