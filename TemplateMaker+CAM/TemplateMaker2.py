@@ -155,7 +155,6 @@ def run(context):
                 break
         if not scribe_sketch:
             ui.messageBox('Sketch "Scribe" not found.')
-            return
 
         # create the scribe operation input
         input: adsk.cam.OperationInput = setup.operations.createInput('trace')
