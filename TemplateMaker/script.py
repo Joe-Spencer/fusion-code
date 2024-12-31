@@ -57,7 +57,7 @@ class SetupWCSPoint(Enum):
 
 #main function
 
-def run():
+def run(thickness: float, name: str):
     ui = None
     try:
 
@@ -80,7 +80,7 @@ def run():
 
         #################### create template bodies ####################
         
-        models = createBodies(design)
+        models = createBodies(design, thickness)
 
 
         #################### select cutting tools ####################
@@ -267,7 +267,7 @@ def run():
 
         # change some nc program parameters
         ncParameters = ncInput.parameters
-        ncParameters.itemByName('nc_program_filename').value.value = 'TemplateFromPreset'
+        ncParameters.itemByName('nc_program_filename').value.value = name
         ncParameters.itemByName('nc_program_openInEditor').value.value = True
 
         # set the defualt output folder for the NC program to desktop
@@ -340,7 +340,7 @@ def getToolsFromLibraryByTypeDiameterRangeAndMinFluteLength(toolLibrary: adsk.ca
     return tools
 
 
-def createBodies(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
+def createBodies(design: adsk.fusion.Design, thickness: float) -> adsk.fusion.BRepBody:
     ''' Return a list of BRepBody entities created from the DXF file '''
     ui = None
     try:
@@ -386,7 +386,8 @@ def createBodies(design: adsk.fusion.Design) -> adsk.fusion.BRepBody:
                     break
             if not isContained:
                 extInput = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-                distance = adsk.core.ValueInput.createByReal(-0.508)  # Change the distance as needed
+                thicnkness = thickness*-2.54
+                distance = adsk.core.ValueInput.createByReal(thickness)  
                 extInput.setDistanceExtent(False, distance)
                 bod=extrudes.add(extInput)
                 model.append(bod.bodies[0])

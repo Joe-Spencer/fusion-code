@@ -112,9 +112,9 @@ def command_execute(args: adsk.core.CommandEventArgs):
 
     # Do something interesting
     text = text_box.text
-    expression = value_input.expression
+    expression = value_input.value
     msg = f'Your text: {text}<br>Your value: {expression}'
-    script.run()
+    script.run(expression, text)
 
 
 # This event handler is called when the command needs to compute a new preview in the graphics window.
