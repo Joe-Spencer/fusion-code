@@ -200,7 +200,7 @@ def run(thickness: float, name: str):
         input = setup.operations.createInput('contour2d')
         input.tool = finishingTool
         input.displayName = 'cutout'
-        input.parameters.itemByName('bottomHeight_offset').expression = '-0.204 in'
+        input.parameters.itemByName('bottomHeight_offset').expression = '-0.00204 in'
         input.parameters.itemByName('doMultipleDepths').value.value = True
         input.parameters.itemByName('maximumStepdown').expression = '0.1 in'
         input.parameters.itemByName('tool_spindleSpeed').expression = '12000 rpm'
