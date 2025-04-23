@@ -23,6 +23,9 @@ Just for fun. Makes 100 randomly sized non-intersecting spheres.
 ### CustomThermwoodPostProcessor:
 This post processor is specifically intended for a machine that has been modified such that the axes are rotated 270 degrees causing the long side of the table to point in the negative x direction. It also includes preset values for offset blocks.
 
+### PackageManager
+Helps install Python packages for Fusion 360's Python environment.It reads packages to install from a requirements.txt file then attempts to locate all Fusion 360 Python executables and install the packages for each one.
+
 ### Examples:
 Also included in this repo is an "Examples" file with links to some of my projects in the Fusion web viewer.
 

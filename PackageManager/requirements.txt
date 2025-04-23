@@ -1,0 +1,6 @@
+# Package requirements for Fusion 360
+# Add or remove packages as needed
+
+# Model Context Protocol
+mcp[cli]
+
