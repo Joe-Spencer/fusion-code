@@ -10,7 +10,7 @@ Add in that Automates DXF import and CAM for standard luan templates by assuming
 Script that creates a custom UI element allowing the user to adjust a parametric spiral staircase model in real time. This model is basic but it can be used as the basis for a more complex 3D model.
 
 ### CutList:
-Script that creates a custom BOM by identify parts with the same overall dimensions and grouping them together with a quantity to be cut.
+Script that creates a custom BOM by identifying parts with the same overall dimensions and grouping them together with a quantity to be cut.
 
 ### ParametricSpreadsheetImport:
 This script allows the user to import a list of parameters from an excel spreadsheet. The user is prompted to select the column index for parameter names, the column index for parameter values and the start/stop rows.
