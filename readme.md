@@ -21,11 +21,11 @@ Script that creates a preset list of parameters to use as a starting point for e
 ### Triangulator:
 Script that generates a series of triangles from a CSV file. This is useful for measuring a compound radius.
 
-### Bryce 3D
+### Bryce 3D:
 Add-in that attempts to replicate some of the unique features of Bryce 3D into Fusion. Currently only terrain generation is implemented.
 
-### PackageManager
-Helps install packages for Fusion 360's Python environment.It reads packages to install from a requirements.txt file then attempts to locate all Fusion 360 Python executables and install the packages for each one.
+### PackageManager:
+Helps install packages for Fusion 360's Python environment. It reads packages to install from a requirements.txt file then attempts to locate all Fusion 360 Python executables and install the packages for each one.
 
 ### Spheres:
 Just for fun. Makes 100 randomly sized non-intersecting spheres.
