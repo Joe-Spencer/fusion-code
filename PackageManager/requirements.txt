@@ -4,3 +4,5 @@
 # Model Context Protocol
 mcp[cli]
 
+# HTTP requests library
+requests
